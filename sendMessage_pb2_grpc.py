@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-import replication_pb2 as replication__pb2
+import sendMessage_pb2 as sendMessage__pb2
 
 GRPC_GENERATED_VERSION = '1.70.0'
 GRPC_VERSION = grpc.__version__
@@ -18,14 +18,14 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + f' but the generated code in replication_pb2_grpc.py depends on'
+        + f' but the generated code in sendMessage_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
     )
 
 
-class SequenceStub(object):
+class SendMessageServiceStub(object):
     """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
@@ -34,43 +34,43 @@ class SequenceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.Write = channel.unary_unary(
-                '/replication.Sequence/Write',
-                request_serializer=replication__pb2.WriteRequest.SerializeToString,
-                response_deserializer=replication__pb2.WriteResponse.FromString,
+        self.SendMessage = channel.unary_unary(
+                '/SendMessageService/SendMessage',
+                request_serializer=sendMessage__pb2.SendMessageRequest.SerializeToString,
+                response_deserializer=sendMessage__pb2.SendMessageResponse.FromString,
                 _registered_method=True)
 
 
-class SequenceServicer(object):
+class SendMessageServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
-    def Write(self, request, context):
+    def SendMessage(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
 
-def add_SequenceServicer_to_server(servicer, server):
+def add_SendMessageServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'Write': grpc.unary_unary_rpc_method_handler(
-                    servicer.Write,
-                    request_deserializer=replication__pb2.WriteRequest.FromString,
-                    response_serializer=replication__pb2.WriteResponse.SerializeToString,
+            'SendMessage': grpc.unary_unary_rpc_method_handler(
+                    servicer.SendMessage,
+                    request_deserializer=sendMessage__pb2.SendMessageRequest.FromString,
+                    response_serializer=sendMessage__pb2.SendMessageResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'replication.Sequence', rpc_method_handlers)
+            'SendMessageService', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('replication.Sequence', rpc_method_handlers)
+    server.add_registered_method_handlers('SendMessageService', rpc_method_handlers)
 
 
  # This class is part of an EXPERIMENTAL API.
-class Sequence(object):
+class SendMessageService(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def Write(request,
+    def SendMessage(request,
             target,
             options=(),
             channel_credentials=None,
@@ -83,9 +83,9 @@ class Sequence(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/replication.Sequence/Write',
-            replication__pb2.WriteRequest.SerializeToString,
-            replication__pb2.WriteResponse.FromString,
+            '/SendMessageService/SendMessage',
+            sendMessage__pb2.SendMessageRequest.SerializeToString,
+            sendMessage__pb2.SendMessageResponse.FromString,
             options,
             channel_credentials,
             insecure,

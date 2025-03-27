@@ -3,8 +3,7 @@
 import grpc
 import warnings
 
-from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
-import heartbeat_service_pb2 as heartbeat__service__pb2
+import checkLeader_pb2 as checkLeader__pb2
 
 GRPC_GENERATED_VERSION = '1.70.0'
 GRPC_VERSION = grpc.__version__
@@ -19,14 +18,14 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + f' but the generated code in heartbeat_service_pb2_grpc.py depends on'
+        + f' but the generated code in checkLeader_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
     )
 
 
-class ViewServiceStub(object):
+class CheckLeaderServiceStub(object):
     """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
@@ -35,43 +34,43 @@ class ViewServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.Heartbeat = channel.unary_unary(
-                '/viewservice.ViewService/Heartbeat',
-                request_serializer=heartbeat__service__pb2.HeartbeatRequest.SerializeToString,
-                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+        self.CheckLeader = channel.unary_unary(
+                '/CheckLeaderService/CheckLeader',
+                request_serializer=checkLeader__pb2.CheckLeaderRequest.SerializeToString,
+                response_deserializer=checkLeader__pb2.CheckLeaderResponse.FromString,
                 _registered_method=True)
 
 
-class ViewServiceServicer(object):
+class CheckLeaderServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
-    def Heartbeat(self, request, context):
+    def CheckLeader(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
 
-def add_ViewServiceServicer_to_server(servicer, server):
+def add_CheckLeaderServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'Heartbeat': grpc.unary_unary_rpc_method_handler(
-                    servicer.Heartbeat,
-                    request_deserializer=heartbeat__service__pb2.HeartbeatRequest.FromString,
-                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            'CheckLeader': grpc.unary_unary_rpc_method_handler(
+                    servicer.CheckLeader,
+                    request_deserializer=checkLeader__pb2.CheckLeaderRequest.FromString,
+                    response_serializer=checkLeader__pb2.CheckLeaderResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'viewservice.ViewService', rpc_method_handlers)
+            'CheckLeaderService', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('viewservice.ViewService', rpc_method_handlers)
+    server.add_registered_method_handlers('CheckLeaderService', rpc_method_handlers)
 
 
  # This class is part of an EXPERIMENTAL API.
-class ViewService(object):
+class CheckLeaderService(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def Heartbeat(request,
+    def CheckLeader(request,
             target,
             options=(),
             channel_credentials=None,
@@ -84,9 +83,9 @@ class ViewService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/viewservice.ViewService/Heartbeat',
-            heartbeat__service__pb2.HeartbeatRequest.SerializeToString,
-            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            '/CheckLeaderService/CheckLeader',
+            checkLeader__pb2.CheckLeaderRequest.SerializeToString,
+            checkLeader__pb2.CheckLeaderResponse.FromString,
             options,
             channel_credentials,
             insecure,
