@@ -1,6 +1,6 @@
 # distributed-systems-project
 
-python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. ./checkLeader.proto
+python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. ./raft.proto
 
 Client:
 
