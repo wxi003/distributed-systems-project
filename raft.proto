@@ -32,8 +32,26 @@ message AppendEntriesResponse {
     int32 term = 1;
     bool success = 2;
 }
+message CheckLeaderRequest {
+  string clientID = 1;     // Optional
+}
 
+message CheckLeaderResponse {
+  bool isLeader = 1;    // True if this server is the leader
+  string leaderPort = 2;  // Optional: Port of the leader if known
+}
+message SendMessageRequest {
+  string message = 1; 
+}
+
+message SendMessageResponse {
+  bool isSuccessful = 1;    
+  bool isLeader = 2;  
+}
 service RaftService {
     rpc RequestVote(RequestVoteRequest) returns (RequestVoteResponse);
     rpc AppendEntries(AppendEntriesRequest) returns (AppendEntriesResponse);
+    rpc CheckLeader(CheckLeaderRequest) returns (CheckLeaderResponse);
+    rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+
 }

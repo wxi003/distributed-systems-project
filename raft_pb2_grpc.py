@@ -44,6 +44,16 @@ class RaftServiceStub(object):
                 request_serializer=raft__pb2.AppendEntriesRequest.SerializeToString,
                 response_deserializer=raft__pb2.AppendEntriesResponse.FromString,
                 _registered_method=True)
+        self.CheckLeader = channel.unary_unary(
+                '/raft.RaftService/CheckLeader',
+                request_serializer=raft__pb2.CheckLeaderRequest.SerializeToString,
+                response_deserializer=raft__pb2.CheckLeaderResponse.FromString,
+                _registered_method=True)
+        self.SendMessage = channel.unary_unary(
+                '/raft.RaftService/SendMessage',
+                request_serializer=raft__pb2.SendMessageRequest.SerializeToString,
+                response_deserializer=raft__pb2.SendMessageResponse.FromString,
+                _registered_method=True)
 
 
 class RaftServiceServicer(object):
@@ -61,6 +71,18 @@ class RaftServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def CheckLeader(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SendMessage(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_RaftServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -73,6 +95,16 @@ def add_RaftServiceServicer_to_server(servicer, server):
                     servicer.AppendEntries,
                     request_deserializer=raft__pb2.AppendEntriesRequest.FromString,
                     response_serializer=raft__pb2.AppendEntriesResponse.SerializeToString,
+            ),
+            'CheckLeader': grpc.unary_unary_rpc_method_handler(
+                    servicer.CheckLeader,
+                    request_deserializer=raft__pb2.CheckLeaderRequest.FromString,
+                    response_serializer=raft__pb2.CheckLeaderResponse.SerializeToString,
+            ),
+            'SendMessage': grpc.unary_unary_rpc_method_handler(
+                    servicer.SendMessage,
+                    request_deserializer=raft__pb2.SendMessageRequest.FromString,
+                    response_serializer=raft__pb2.SendMessageResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -129,6 +161,60 @@ class RaftService(object):
             '/raft.RaftService/AppendEntries',
             raft__pb2.AppendEntriesRequest.SerializeToString,
             raft__pb2.AppendEntriesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CheckLeader(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/raft.RaftService/CheckLeader',
+            raft__pb2.CheckLeaderRequest.SerializeToString,
+            raft__pb2.CheckLeaderResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SendMessage(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/raft.RaftService/SendMessage',
+            raft__pb2.SendMessageRequest.SerializeToString,
+            raft__pb2.SendMessageResponse.FromString,
             options,
             channel_credentials,
             insecure,

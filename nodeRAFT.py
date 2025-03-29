@@ -10,7 +10,7 @@ from concurrent import futures
 ROLE_FOLLOWER = "Follower"
 ROLE_CANDIDATE = "Candidate"
 ROLE_LEADER = "Leader"
-
+commitState = False
 class Server(raft_pb2_grpc.RaftServiceServicer):
     def __init__(self, server_id, all_addresses):
         #Initialize a server with RAFT state
@@ -121,6 +121,7 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
         self.last_heartbeat_sent = time.time()
 
     def send_append_entries(self, to_server_id, request):
+        global commitState
         address = self.all_addresses[to_server_id]
         with grpc.insecure_channel(address) as channel:
             stub = raft_pb2_grpc.RaftServiceStub(channel)
@@ -131,6 +132,7 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
                     self.role = ROLE_FOLLOWER
                     self.voted_for = None
                     return
+
                 if response.success:
                     self.match_index[to_server_id] = request.prev_log_index + len(request.entries)
                     self.next_index[to_server_id] = self.match_index[to_server_id] + 1
@@ -139,9 +141,14 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
                         if sum(1 for s in self.match_index if self.match_index[s] >= n) > len(self.all_addresses) // 2:
                             self.commit_index = n
                             self.send_client_responses()
+                            
+                            commitState=True
                             break
+                        else:
+                            commitState=False
                 else:
                     self.next_index[to_server_id] = max(1, self.next_index[to_server_id] - 1)
+                    commitState=False
             except grpc.RpcError as e:
                 print(f"Server {self.server_id} RPC error to {to_server_id}: {e}")
 
@@ -189,9 +196,46 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
         return raft_pb2.AppendEntriesResponse(term=self.term, success=True)
 
     def send_client_responses(self):
-        #end responses to clients for committed log entries (queue-based)
-        None
 
+        None
+    def CheckLeader(self, request, context):
+        if self.server_id == self.leader_id:
+            return raft_pb2.CheckLeaderResponse(isLeader = True,leaderPort = self.all_addresses[self.leader_id].split(':')[-1])
+        else:
+            return raft_pb2.CheckLeaderResponse(isLeader = False,leaderPort = self.all_addresses[self.leader_id].split(':')[-1])
+    def SendMessage(self, request, context):
+        global commitState
+        self.log.append((self.term,request.message))
+        print(self.log)
+        for server in range(len(self.all_addresses)):
+            if server != self.server_id:
+              next_idx = self.next_index[server]
+              prev_log_index = next_idx - 1
+              prev_log_term = self.log[prev_log_index][0] if prev_log_index >= 0 else 0
+              entries = [raft_pb2.LogEntry(term=t, command=c) for t, c in self.log[next_idx:]]
+              request = raft_pb2.AppendEntriesRequest(
+                    term=self.term,
+                    leader_id=self.server_id,
+                    prev_log_index=prev_log_index,
+                    prev_log_term=prev_log_term,
+                    entries=entries,
+                    leader_commit=self.commit_index
+                )
+              threading.Thread(target=self.send_append_entries, args=(server,request)).start()
+
+
+        if commitState == True:
+            if self.server_id == self.leader_id:
+             commitState = False
+             return raft_pb2.SendMessageResponse(isSuccessful= True,isLeader = True)
+            else:
+             commitState = False
+             return raft_pb2.SendMessageResponse(isSuccessful= True,isLeader = False)
+        else:
+            if self.server_id == self.leader_id:
+             return raft_pb2.SendMessageResponse(isSuccessful= False,isLeader = True)
+            else:
+             return raft_pb2.SendMessageResponse(isSuccessful= False,isLeader = False)
 if __name__ == "__main__":
     serverPorts = []
     while True:

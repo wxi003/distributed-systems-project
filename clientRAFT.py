@@ -1,8 +1,8 @@
 import grpc
-import checkLeader_pb2
-import checkLeader_pb2_grpc
-import sendMessage_pb2
-import sendMessage_pb2_grpc
+import raft_pb2
+import raft_pb2_grpc
+# import sendMessage_pb2
+# import sendMessage_pb2_grpc
 from typing import List, Optional
 
 class RaftClient:
@@ -14,10 +14,9 @@ class RaftClient:
         for port in self.serverPorts:
             try:
                 with grpc.insecure_channel("localhost:" + port) as channel:
-                    stub = checkLeader_pb2_grpc.CheckLeaderServiceStub(channel)
-                    request = checkLeader_pb2.CheckLeaderRequest(clientID="client1")
+                    stub =raft_pb2_grpc.RaftServiceStub(channel)
+                    request = raft_pb2.CheckLeaderRequest(clientID="client1")
                     response = stub.CheckLeader(request, timeout=2)  # Set a timeout
-
                     if response.isLeader:
                         print(f"Found leader at {port}")
                         self.currentLeader = port
@@ -42,9 +41,9 @@ class RaftClient:
 
         try:
             with grpc.insecure_channel("localhost:" + self.currentLeader) as channel:
-                stub = sendMessage_pb2_grpc.SendMessageServiceStub(channel)
+                stub = raft_pb2_grpc.RaftServiceStub(channel)
                 # Replace with your actual request type
-                request = sendMessage_pb2.SendMessageRequest(message=requestData)
+                request = raft_pb2.SendMessageRequest(message=requestData)
                 response = stub.SendMessage(request, timeout=2)
                 if not response.isLeader:
                     print("Leader changed, rediscovering...")
