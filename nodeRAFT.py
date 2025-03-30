@@ -5,6 +5,7 @@ import grpc
 import raft_pb2
 import raft_pb2_grpc
 from concurrent import futures
+import sys
 
 #Define roles as constants
 ROLE_FOLLOWER = "Follower"
@@ -251,19 +252,40 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
             else:
              return raft_pb2.SendMessageResponse(isSuccessful= False,isLeader = False)
 if __name__ == "__main__":
+    # serverPorts = []
+    # while True:
+    #     newPort = input("Please enter server port, enter q to finish: ")
+    #     if newPort != "q":
+    #         serverPorts.append(newPort)
+    #     else:
+    #         break
+    # serverPorts = list(dict.fromkeys(serverPorts))
+    
+    # allAddresses = [f'localhost:{i}' for i in serverPorts]
+    # servers = [Server(i, allAddresses) for i in range(len(serverPorts))]
+    # threads = [threading.Thread(target=server.run) for server in servers]
+    # for thread in threads:
+    #     thread.start()
+    # for thread in threads:
+    #     thread.join()
     serverPorts = []
-    while True:
-        newPort = input("Please enter server port, enter q to finish: ")
-        if newPort != "q":
-            serverPorts.append(newPort)
+    base_port = 50051  # Starting port for servers
+    selfPort = int(sys.argv[1])
+    serverPorts.append(selfPort)
+    count=0
+    
+    for i in range(50051,50056):
+        if i != selfPort:
+            serverPorts.append(i)
+    
+    serverPorts.sort()
+    for port in serverPorts:
+        if port!=selfPort:
+            count=count+1
         else:
             break
-    serverPorts = list(dict.fromkeys(serverPorts))
-    
     allAddresses = [f'localhost:{i}' for i in serverPorts]
-    servers = [Server(i, allAddresses) for i in range(len(serverPorts))]
-    threads = [threading.Thread(target=server.run) for server in servers]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join()
+    server = Server(count, allAddresses) 
+    server.run()  
+         
+    
