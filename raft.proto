@@ -1,4 +1,5 @@
 syntax = "proto3";
+import "google/protobuf/empty.proto";
 
 package raft;
 
@@ -48,10 +49,17 @@ message SendMessageResponse {
   bool isSuccessful = 1;    
   bool isLeader = 2;  
 }
+message HeartBeat{
+  int32 leader_id = 1;
+}
+message HeartBeatResponse{
+   string message = 1;
+}
 service RaftService {
     rpc RequestVote(RequestVoteRequest) returns (RequestVoteResponse);
     rpc AppendEntries(AppendEntriesRequest) returns (AppendEntriesResponse);
     rpc CheckLeader(CheckLeaderRequest) returns (CheckLeaderResponse);
     rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+    rpc DetectHeartBeats(HeartBeat) returns (google.protobuf.Empty);
 
 }

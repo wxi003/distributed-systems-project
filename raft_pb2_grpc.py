@@ -3,6 +3,7 @@
 import grpc
 import warnings
 
+from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
 import raft_pb2 as raft__pb2
 
 GRPC_GENERATED_VERSION = '1.70.0'
@@ -54,6 +55,11 @@ class RaftServiceStub(object):
                 request_serializer=raft__pb2.SendMessageRequest.SerializeToString,
                 response_deserializer=raft__pb2.SendMessageResponse.FromString,
                 _registered_method=True)
+        self.DetectHeartBeats = channel.unary_unary(
+                '/raft.RaftService/DetectHeartBeats',
+                request_serializer=raft__pb2.HeartBeat.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                _registered_method=True)
 
 
 class RaftServiceServicer(object):
@@ -83,6 +89,12 @@ class RaftServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def DetectHeartBeats(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_RaftServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -105,6 +117,11 @@ def add_RaftServiceServicer_to_server(servicer, server):
                     servicer.SendMessage,
                     request_deserializer=raft__pb2.SendMessageRequest.FromString,
                     response_serializer=raft__pb2.SendMessageResponse.SerializeToString,
+            ),
+            'DetectHeartBeats': grpc.unary_unary_rpc_method_handler(
+                    servicer.DetectHeartBeats,
+                    request_deserializer=raft__pb2.HeartBeat.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -215,6 +232,33 @@ class RaftService(object):
             '/raft.RaftService/SendMessage',
             raft__pb2.SendMessageRequest.SerializeToString,
             raft__pb2.SendMessageResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DetectHeartBeats(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/raft.RaftService/DetectHeartBeats',
+            raft__pb2.HeartBeat.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,

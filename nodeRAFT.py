@@ -102,24 +102,32 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
             self.match_index = {s: 0 for s in range(len(self.all_addresses)) if s != self.server_id}
         for server in range(len(self.all_addresses)):
             if server != self.server_id:
-                next_idx = self.next_index[server]
-                prev_log_index = next_idx - 1
-                prev_log_term = self.log[prev_log_index][0] if prev_log_index >= 0 else 0
-                entries = [] #[raft_pb2.LogEntry(term=t, command=c) for t, c in self.log[next_idx:]]
-                request = raft_pb2.AppendEntriesRequest(
-                    term=self.term,
-                    leader_id=self.server_id,
-                    prev_log_index=prev_log_index,
-                    prev_log_term=prev_log_term,
-                    entries=entries,
-                    leader_commit=self.commit_index
+                # next_idx = self.next_index[server]
+                # prev_log_index = next_idx - 1
+                # prev_log_term = self.log[prev_log_index][0] if prev_log_index >= 0 else 0
+                # entries = [] #[raft_pb2.LogEntry(term=t, command=c) for t, c in self.log[next_idx:]]
+                request = raft_pb2.HeartBeat(
+                    # term=self.term,
+                    leader_id=self.server_id
+                    # prev_log_index=prev_log_index,
+                    # prev_log_term=prev_log_term,
+                    # entries=entries,
+                    # leader_commit=self.commit_index
                 )
 
                 
                 # Send AppendEntries in a separate thread
-                threading.Thread(target=self.send_append_entries, args=(server,request)).start()
+                threading.Thread(target=self.send_heart_beat, args=(server,request)).start()
         self.last_heartbeat_sent = time.time()
 
+    def send_heart_beat(self,to_server_id,request):
+        address = self.all_addresses[to_server_id]
+        with grpc.insecure_channel(address) as channel:
+            stub = raft_pb2_grpc.RaftServiceStub(channel)
+            try:
+                response = stub.DetectHeartBeats(request)
+            except grpc.RpcError as e:
+                print(f"Server {self.server_id} RPC error to {to_server_id}: {e}")
     def send_append_entries(self, to_server_id, request):
         global commitState
         address = self.all_addresses[to_server_id]
@@ -127,28 +135,27 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
             stub = raft_pb2_grpc.RaftServiceStub(channel)
             try:
                 response = stub.AppendEntries(request)
+                
                 if response.term > self.term:
                     self.term = response.term
                     self.role = ROLE_FOLLOWER
                     self.voted_for = None
                     return
-
+              
                 if response.success:
                     self.match_index[to_server_id] = request.prev_log_index + len(request.entries)
                     self.next_index[to_server_id] = self.match_index[to_server_id] + 1
                     # Update commit_index based on majority replication
-                    for n in range(self.commit_index + 1, len(self.log)):
+                    for n in range(self.commit_index, len(self.log)):
                         if sum(1 for s in self.match_index if self.match_index[s] >= n) > len(self.all_addresses) // 2:
                             self.commit_index = n
-                            self.send_client_responses()
-                            
+                            self.send_client_responses()                            
                             commitState=True
                             break
-                        else:
-                            commitState=False
+                            
                 else:
+                    print("not good")
                     self.next_index[to_server_id] = max(1, self.next_index[to_server_id] - 1)
-                    commitState=False
             except grpc.RpcError as e:
                 print(f"Server {self.server_id} RPC error to {to_server_id}: {e}")
 
@@ -168,22 +175,28 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
             print(f"Vote: Server {self.server_id} voted server {self.voted_for}")
             return raft_pb2.RequestVoteResponse(term=self.term, vote_granted=True)
         return raft_pb2.RequestVoteResponse(term=self.term, vote_granted=False)
-
-    def AppendEntries(self, request, context):
-        #Handle incoming AppendEntries RPC
-        if request.term < self.term:
-            return raft_pb2.AppendEntriesResponse(term=self.term, success=False)
+    def DetectHeartBeats(self,request,context):
         self.last_heartbeat_time = time.time()
         self.leader_id = request.leader_id
         if self.role == ROLE_CANDIDATE:
             self.role = ROLE_FOLLOWER
-        prev_log_index = request.prev_log_index
-        if prev_log_index >= len(self.log):
+        return raft_pb2.HeartBeatResponse()
+    def AppendEntries(self, request, context):
+        #Handle incoming AppendEntries RPC
+         if request.term < self.term:
             return raft_pb2.AppendEntriesResponse(term=self.term, success=False)
-        if prev_log_index >= 0 and self.log[prev_log_index][0] != request.prev_log_term:
+          
+        #  self.last_heartbeat_time = time.time()
+        #  self.leader_id = request.leader_id
+        #  if self.role == ROLE_CANDIDATE:
+        #     self.role = ROLE_FOLLOWER
+         prev_log_index = request.prev_log_index
+         if prev_log_index >= len(self.log):
+            return raft_pb2.AppendEntriesResponse(term=self.term, success=False)
+         if prev_log_index >= 0 and self.log[prev_log_index][0] != request.prev_log_term:
             return raft_pb2.AppendEntriesResponse(term=self.term, success=False)
         #Apply log entries
-        for i, entry in enumerate(request.entries):
+         for i, entry in enumerate(request.entries):
             log_index = prev_log_index + 1 + i
             if log_index < len(self.log):
                 if self.log[log_index][0] != entry.term:
@@ -191,9 +204,9 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
                     self.log.append((entry.term, entry.command))
             else:
                 self.log.append((entry.term, entry.command))
-        if request.leader_commit > self.commit_index:
+         if request.leader_commit > self.commit_index:
             self.commit_index = min(request.leader_commit, len(self.log) - 1)
-        return raft_pb2.AppendEntriesResponse(term=self.term, success=True)
+         return raft_pb2.AppendEntriesResponse(term=self.term, success=True)
 
     def send_client_responses(self):
 
@@ -206,10 +219,10 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
     def SendMessage(self, request, context):
         global commitState
         self.log.append((self.term,request.message))
-        print(self.log)
+        print("Received from client: "+request.message)
         for server in range(len(self.all_addresses)):
             if server != self.server_id:
-              next_idx = self.next_index[server]
+              next_idx = self.next_index[server]           
               prev_log_index = next_idx - 1
               prev_log_term = self.log[prev_log_index][0] if prev_log_index >= 0 else 0
               entries = [raft_pb2.LogEntry(term=t, command=c) for t, c in self.log[next_idx:]]
@@ -221,9 +234,10 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
                     entries=entries,
                     leader_commit=self.commit_index
                 )
+              
               threading.Thread(target=self.send_append_entries, args=(server,request)).start()
-
-
+        
+        time.sleep(0.5)
         if commitState == True:
             if self.server_id == self.leader_id:
              commitState = False
