@@ -4,7 +4,9 @@ import random
 import grpc
 import raft_pb2
 import raft_pb2_grpc
+import shutil
 from concurrent import futures
+import argparse
 import sys
 
 #Define roles as constants
@@ -13,27 +15,59 @@ ROLE_CANDIDATE = "Candidate"
 ROLE_LEADER = "Leader"
 commitState = False
 class Server(raft_pb2_grpc.RaftServiceServicer):
-    def __init__(self, server_id, all_addresses):
+    def __init__(self, leader_port, follower_port):
         #Initialize a server with RAFT state
-        self.server_id = server_id
-        self.all_addresses = all_addresses  #['localhost:50001', ...]
-        self.port = int(self.all_addresses[self.server_id].split(':')[-1])
+        if follower_port is not None:
+            try:
+                with grpc.insecure_channel("localhost:" + str(leader_port)) as channel:
+                    stub = raft_pb2_grpc.RaftServiceStub(channel)
+                    request = raft_pb2.ConnectLeaderRequest(secondary_port = follower_port)
+                    response = stub.ConnectLeader(request, timeout=20)
+                    print(response)
+                    if response.status == raft_pb2.Status.FAILURE_NOT_LEADER:
+                        print("The leader port is not current leader, please try again")
+                        exit(0)
+                    elif response.status == raft_pb2.Status.FAILURE_DUPLICATE_PORT:
+                        print("The follower port is already listened by a Raft node, please try again")
+                        exit(0)     
+                    self.server_id = response.node_id
+                    self.all_addresses = response.other_ports
+                    self.log_file = response.log_file
+                    self.next_node_id = len(response.other_ports) + 1
+            except grpc.RpcError as e:
+                print(f"Error communicating with leader: {e}")
+                exit(0)
+            self.role = ROLE_FOLLOWER
+            self.port = follower_port
+            self.leader = leader_port
+            self.need_replay = True
+        else:
+            self.role = ROLE_LEADER
+            self.port = leader_port
+            self.leader = leader_port
+            self.server_id = 0
+            self.all_addresses = []
+            self.log_file = "LOGNODE0.txt"
+            with open(self.log_file, "w") as f:
+                pass # Leave it empty for now
+            self.next_node_id = 0
+            self.need_replay = False
+            self.leader_id = 0
+        self.next_index = 0
         self.term = 0
-        self.role = ROLE_FOLLOWER
         self.voted_for = None
         self.log = []
         self.commit_index = 0
         self.last_heartbeat_time = time.time()
         self.election_timeout = random.uniform(10, 17)
         self.votes_received = 0
-        self.next_index = None
+        self.next_index = 0
         self.match_index = None
         self.last_heartbeat_sent = 0
         self.heartbeat_interval = 5
-        self.leader_id = None
         self.pending_requests = []  #For client requests (not sure if needed)
         self.lock = threading.Lock()
-        self.unreachID = set()
+
         # Start gRPC server
         self.grpc_server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
         raft_pb2_grpc.add_RaftServiceServicer_to_server(self, self.grpc_server)
@@ -45,17 +79,14 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
         #Main server loop: handle timeouts and initiate RPC calls
         while True:
             current_time = time.time()
-            with self.lock:
-                if self.role in [ROLE_FOLLOWER, ROLE_CANDIDATE]:
-                    if current_time - self.last_heartbeat_time > self.election_timeout:
-                        if self.leader_id != None:
-                            self.unreachID.add(self.leader_id)
-                        print(f"Server {self.server_id} started an election.")
-                        self.start_election()
+            if self.role in [ROLE_FOLLOWER, ROLE_CANDIDATE]:
+                if current_time - self.last_heartbeat_time > self.election_timeout:
+                    print(f"Server {self.server_id} started an election.")
+                    self.start_election()
                 if self.role == ROLE_LEADER:
                     if current_time - self.last_heartbeat_sent > self.heartbeat_interval:
                         self.send_heartbeats()
-            time.sleep(0.1)  # Avoid busy waiting
+            time.sleep(1)  # Avoid busy waiting
 
     def start_election(self):
         #Start a leader election as a Candidate          
@@ -80,7 +111,6 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
             with grpc.insecure_channel(address) as channel:
                 stub = raft_pb2_grpc.RaftServiceStub(channel)
                 try:
-                   
                     response = stub.RequestVote(request)
                     if response.term > self.term:
                         self.term = response.term
@@ -95,48 +125,26 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
                             print(f"Server {self.server_id} become leader")
                             self.send_heartbeats()
                 except grpc.RpcError as e:
-                    self.unreachID.add(to_server_id)
                     print(f"Server {self.server_id} RPC error to {to_server_id}: {e}")
         with futures.ThreadPoolExecutor(max_workers=5) as executor:
-            executor.map(send_request_vote, [s for s in range(len(self.all_addresses)) if s != self.server_id and s not in self.unreachID])
+            executor.map(send_request_vote, [s for s in range(len(self.all_addresses)) if s != self.server_id])
 
     def send_heartbeats(self):
-        #Leader sends AppendEntries RPCs as heartbeats
-        if self.next_index is None:
-            self.next_index = {s: len(self.log) for s in range(len(self.all_addresses)) if s != self.server_id}
-            self.match_index = {s: 0 for s in range(len(self.all_addresses)) if s != self.server_id}
-        for server in range(len(self.all_addresses)):
-            if server != self.server_id:
-                # next_idx = self.next_index[server]
-                # prev_log_index = next_idx - 1
-                # prev_log_term = self.log[prev_log_index][0] if prev_log_index >= 0 else 0
-                # entries = [] #[raft_pb2.LogEntry(term=t, command=c) for t, c in self.log[next_idx:]]
-                if server not in self.unreachID:
-                 temp = set(map(str, self.unreachID))
-                 request = raft_pb2.HeartBeat(
-                    # term=self.term,
-                    leader_id=self.server_id,
-                    # prev_log_index=prev_log_index,
-                    # prev_log_term=prev_log_term,
-                    # entries=entries,
-                    # leader_commit=self.commit_index
-                    active_followers = list(temp)
-                 )
-                
-                
-                # Send AppendEntries in a separate thread
-                 threading.Thread(target=self.send_heart_beat, args=(server,request)).start()
+        for server_port in self.all_addresses:
+            request = raft_pb2.HeartBeat(
+                leader_id=self.server_id
+            )
+            threading.Thread(target=self.send_heart_beat, args=(server_port,request)).start()
         self.last_heartbeat_sent = time.time()
 
-    def send_heart_beat(self,to_server_id,request):
-        address = self.all_addresses[to_server_id]
-        with grpc.insecure_channel(address) as channel:
+    def send_heart_beat(self,server_port,request):
+        with grpc.insecure_channel("localhost:" + str(server_port)) as channel:
             stub = raft_pb2_grpc.RaftServiceStub(channel)
             try:
-                response = stub.DetectHeartBeats(request)
+                stub.DetectHeartBeats(request)
             except grpc.RpcError as e:
-                self.unreachID.add(to_server_id)
-                print(f"Server {self.server_id} RPC error to {to_server_id}: The node is dead")
+                print(f"Leader Server {self.server_id} HeartBeat error to localhost::{server_port}: {e}")
+
     def send_append_entries(self, to_server_id, request):
         global commitState
         address = self.all_addresses[to_server_id]
@@ -163,10 +171,10 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
                             break
                             
                 else:
+                    print("not good")
                     self.next_index[to_server_id] = max(1, self.next_index[to_server_id] - 1)
             except grpc.RpcError as e:
-                self.unreachID.add(to_server_id)
-                print(f"Server {self.server_id} RPC error to {to_server_id}: The node is dead")
+                print(f"Server {self.server_id} RPC error to {to_server_id}: {e}")
 
     def RequestVote(self, request, context):
         #Handle incoming RequestVote RPC
@@ -184,12 +192,41 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
             print(f"Vote: Server {self.server_id} voted server {self.voted_for}")
             return raft_pb2.RequestVoteResponse(term=self.term, vote_granted=True)
         return raft_pb2.RequestVoteResponse(term=self.term, vote_granted=False)
+    
+    def ConnectLeader(self,request,context):
+        if self.role != ROLE_LEADER:
+            return raft_pb2.ConnectLeaderResponse(status = raft_pb2.Status.FAILURE_NOT_LEADER)
+        for port in self.all_addresses:
+            if port == request.secondary_port:
+                return raft_pb2.ConnectLeaderResponse(status = raft_pb2.Status.FAILURE_DUPLICATE_PORT)
+        self.next_node_id += 1
+        new_log_file = "LOGNODE" + str(self.next_node_id) + ".txt"
+        response = raft_pb2.ConnectLeaderResponse(status = raft_pb2.Status.SUCCESS, 
+                                                    node_id = self.next_node_id,
+                                                    leader_id = self.server_id,
+                                                    other_ports = self.all_addresses,
+                                                    log_file = new_log_file)
+        shutil.copy(self.log_file, new_log_file)
+        for server_port in self.all_addresses:
+            request = raft_pb2.NewNodeBoardcastRequest(
+                node_port = request.secondary_port
+            )
+            with grpc.insecure_channel("localhost:" + server_port) as channel:
+                stub = raft_pb2_grpc.RaftServiceStub(channel)
+                try:
+                    stub.NewNodeBoardcast(request)
+                except grpc.RpcError as e:
+                    print(f"Leader Server {self.server_id} HeartBeat error to localhost::{server_port}: {e}")
+        self.last_heartbeat_sent = time.time()
+        return response
+
+    def NewNodeBoardcast(self,request,context):
+        self.all_addresses.append(request.node_port)
+        return raft_pb2.Empty()
+
     def DetectHeartBeats(self,request,context):
         self.last_heartbeat_time = time.time()
         self.leader_id = request.leader_id
-        temp = list(map(int, request.active_followers))
-        self.unreachID = set(temp)
-        
         if self.role == ROLE_CANDIDATE:
             self.role = ROLE_FOLLOWER
         return raft_pb2.HeartBeatResponse()
@@ -234,7 +271,6 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
         print("Received from client: "+request.message)
         for server in range(len(self.all_addresses)):
             if server != self.server_id:
-             if server not in self.unreachID:
               next_idx = self.next_index[server]           
               prev_log_index = next_idx - 1
               prev_log_term = self.log[prev_log_index][0] if prev_log_index >= 0 else 0
@@ -264,40 +300,12 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
             else:
              return raft_pb2.SendMessageResponse(isSuccessful= False,isLeader = False)
 if __name__ == "__main__":
-    # serverPorts = []
-    # while True:
-    #     newPort = input("Please enter server port, enter q to finish: ")
-    #     if newPort != "q":
-    #         serverPorts.append(newPort)
-    #     else:
-    #         break
-    # serverPorts = list(dict.fromkeys(serverPorts))
-    
-    # allAddresses = [f'localhost:{i}' for i in serverPorts]
-    # servers = [Server(i, allAddresses) for i in range(len(serverPorts))]
-    # threads = [threading.Thread(target=server.run) for server in servers]
-    # for thread in threads:
-    #     thread.start()
-    # for thread in threads:
-    #     thread.join()
     serverPorts = []
-    base_port = 50051  # Starting port for servers
-    selfPort = int(sys.argv[1])
-    serverPorts.append(selfPort)
-    count=0
-    
-    for i in range(50051,50056):
-        if i != selfPort:
-            serverPorts.append(i)
-    
-    serverPorts.sort()
-    for port in serverPorts:
-        if port!=selfPort:
-            count=count+1
-        else:
-            break
-    allAddresses = [f'localhost:{i}' for i in serverPorts]
-    server = Server(count, allAddresses) 
-    server.run()  
-         
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-l", type=int, required = True)
+    parser.add_argument("-f", type=int)
+    args = parser.parse_args()
+    server = Server(args.l, args.f)
+    server.run()
+
     

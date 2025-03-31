@@ -3,35 +3,41 @@ import "google/protobuf/empty.proto";
 
 package raft;
 
+enum Status {
+  SUCCESS = 0;
+  FAILURE_NOT_LEADER = 1;
+  FAILURE_DUPLICATE_PORT = 2;
+}
+
 message LogEntry {
-    int32 term = 1;
-    string command = 2;
+  int32 term = 1;
+  string command = 2;
 }
 
 message RequestVoteRequest {
-    int32 term = 1;
-    int32 candidate_id = 2;
-    int32 last_log_index = 3;
-    int32 last_log_term = 4;
+  int32 term = 1;
+  int32 candidate_id = 2;
+  int32 last_log_index = 3;
+  int32 last_log_term = 4;
 }
 
 message RequestVoteResponse {
-    int32 term = 1;
-    bool vote_granted = 2;
+  int32 term = 1;
+  bool vote_granted = 2;
 }
 
 message AppendEntriesRequest {
-    int32 term = 1;
-    int32 leader_id = 2;
-    int32 prev_log_index = 3;
-    int32 prev_log_term = 4;
-    repeated LogEntry entries = 5;
-    int32 leader_commit = 6;
+  int32 term = 1;
+  int32 leader_id = 2;
+  int32 prev_log_index = 3;
+  int32 prev_log_term = 4;
+  repeated LogEntry entries = 5;
+  int32 leader_commit = 6;
 }
 
 message AppendEntriesResponse {
-    int32 term = 1;
-    bool success = 2;
+  int32 term = 1;
+  bool success = 2;
 }
 message CheckLeaderRequest {
   string clientID = 1;     // Optional
@@ -51,19 +57,34 @@ message SendMessageResponse {
 }
 message HeartBeat{
   int32 leader_id = 1;
-  repeated string active_followers = 2;
 }
+
 message HeartBeatResponse{
-   string message = 1;
+  string message = 1;
 }
-message Port{
-  int32 port = 1;
+
+message ConnectLeaderRequest {
+  int32 secondary_port = 1;
 }
+
+message ConnectLeaderResponse {
+  Status status = 1;
+  int32 node_id = 2;
+  int32 leader_id = 3;
+  repeated int32 other_ports = 4;
+  string log_file = 5;
+}
+
+message NewNodeBoardcastRequest {
+  int32 node_port = 1;
+}
+
 service RaftService {
-    rpc RequestVote(RequestVoteRequest) returns (RequestVoteResponse);
-    rpc AppendEntries(AppendEntriesRequest) returns (AppendEntriesResponse);
-    rpc CheckLeader(CheckLeaderRequest) returns (CheckLeaderResponse);
-    rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
-    rpc DetectHeartBeats(HeartBeat) returns (google.protobuf.Empty);
-    rpc SendPortNum(Port) returns (google.protobuf.Empty);
+  rpc RequestVote(RequestVoteRequest) returns (RequestVoteResponse);
+  rpc AppendEntries(AppendEntriesRequest) returns (AppendEntriesResponse);
+  rpc CheckLeader(CheckLeaderRequest) returns (CheckLeaderResponse);
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+  rpc DetectHeartBeats(HeartBeat) returns (google.protobuf.Empty);
+  rpc ConnectLeader(ConnectLeaderRequest) returns(ConnectLeaderResponse);
+  rpc NewNodeBoardcast(NewNodeBoardcastRequest) returns(google.protobuf.Empty);
 }

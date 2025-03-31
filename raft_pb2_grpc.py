@@ -6,7 +6,7 @@ import warnings
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
 import raft_pb2 as raft__pb2
 
-GRPC_GENERATED_VERSION = '1.70.0'
+GRPC_GENERATED_VERSION = '1.71.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -60,9 +60,14 @@ class RaftServiceStub(object):
                 request_serializer=raft__pb2.HeartBeat.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 _registered_method=True)
-        self.SendPortNum = channel.unary_unary(
-                '/raft.RaftService/SendPortNum',
-                request_serializer=raft__pb2.Port.SerializeToString,
+        self.ConnectLeader = channel.unary_unary(
+                '/raft.RaftService/ConnectLeader',
+                request_serializer=raft__pb2.ConnectLeaderRequest.SerializeToString,
+                response_deserializer=raft__pb2.ConnectLeaderResponse.FromString,
+                _registered_method=True)
+        self.NewNodeBoardcast = channel.unary_unary(
+                '/raft.RaftService/NewNodeBoardcast',
+                request_serializer=raft__pb2.NewNodeBoardcastRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 _registered_method=True)
 
@@ -100,7 +105,13 @@ class RaftServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def SendPortNum(self, request, context):
+    def ConnectLeader(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def NewNodeBoardcast(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -134,9 +145,14 @@ def add_RaftServiceServicer_to_server(servicer, server):
                     request_deserializer=raft__pb2.HeartBeat.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
-            'SendPortNum': grpc.unary_unary_rpc_method_handler(
-                    servicer.SendPortNum,
-                    request_deserializer=raft__pb2.Port.FromString,
+            'ConnectLeader': grpc.unary_unary_rpc_method_handler(
+                    servicer.ConnectLeader,
+                    request_deserializer=raft__pb2.ConnectLeaderRequest.FromString,
+                    response_serializer=raft__pb2.ConnectLeaderResponse.SerializeToString,
+            ),
+            'NewNodeBoardcast': grpc.unary_unary_rpc_method_handler(
+                    servicer.NewNodeBoardcast,
+                    request_deserializer=raft__pb2.NewNodeBoardcastRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
     }
@@ -286,7 +302,7 @@ class RaftService(object):
             _registered_method=True)
 
     @staticmethod
-    def SendPortNum(request,
+    def ConnectLeader(request,
             target,
             options=(),
             channel_credentials=None,
@@ -299,8 +315,35 @@ class RaftService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/raft.RaftService/SendPortNum',
-            raft__pb2.Port.SerializeToString,
+            '/raft.RaftService/ConnectLeader',
+            raft__pb2.ConnectLeaderRequest.SerializeToString,
+            raft__pb2.ConnectLeaderResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def NewNodeBoardcast(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/raft.RaftService/NewNodeBoardcast',
+            raft__pb2.NewNodeBoardcastRequest.SerializeToString,
             google_dot_protobuf_dot_empty__pb2.Empty.FromString,
             options,
             channel_credentials,
