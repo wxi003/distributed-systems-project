@@ -33,7 +33,7 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
         self.leader_id = None
         self.pending_requests = []  #For client requests (not sure if needed)
         self.lock = threading.Lock()
-
+        self.unreachID = set()
         # Start gRPC server
         self.grpc_server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
         raft_pb2_grpc.add_RaftServiceServicer_to_server(self, self.grpc_server)
@@ -48,6 +48,8 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
             with self.lock:
                 if self.role in [ROLE_FOLLOWER, ROLE_CANDIDATE]:
                     if current_time - self.last_heartbeat_time > self.election_timeout:
+                        if self.leader_id != None:
+                            self.unreachID.add(self.leader_id)
                         print(f"Server {self.server_id} started an election.")
                         self.start_election()
                 if self.role == ROLE_LEADER:
@@ -78,6 +80,7 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
             with grpc.insecure_channel(address) as channel:
                 stub = raft_pb2_grpc.RaftServiceStub(channel)
                 try:
+                   
                     response = stub.RequestVote(request)
                     if response.term > self.term:
                         self.term = response.term
@@ -92,9 +95,10 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
                             print(f"Server {self.server_id} become leader")
                             self.send_heartbeats()
                 except grpc.RpcError as e:
+                    self.unreachID.add(to_server_id)
                     print(f"Server {self.server_id} RPC error to {to_server_id}: {e}")
         with futures.ThreadPoolExecutor(max_workers=5) as executor:
-            executor.map(send_request_vote, [s for s in range(len(self.all_addresses)) if s != self.server_id])
+            executor.map(send_request_vote, [s for s in range(len(self.all_addresses)) if s != self.server_id and s not in self.unreachID])
 
     def send_heartbeats(self):
         #Leader sends AppendEntries RPCs as heartbeats
@@ -107,18 +111,21 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
                 # prev_log_index = next_idx - 1
                 # prev_log_term = self.log[prev_log_index][0] if prev_log_index >= 0 else 0
                 # entries = [] #[raft_pb2.LogEntry(term=t, command=c) for t, c in self.log[next_idx:]]
-                request = raft_pb2.HeartBeat(
+                if server not in self.unreachID:
+                 temp = set(map(str, self.unreachID))
+                 request = raft_pb2.HeartBeat(
                     # term=self.term,
-                    leader_id=self.server_id
+                    leader_id=self.server_id,
                     # prev_log_index=prev_log_index,
                     # prev_log_term=prev_log_term,
                     # entries=entries,
                     # leader_commit=self.commit_index
-                )
-
+                    active_followers = list(temp)
+                 )
+                
                 
                 # Send AppendEntries in a separate thread
-                threading.Thread(target=self.send_heart_beat, args=(server,request)).start()
+                 threading.Thread(target=self.send_heart_beat, args=(server,request)).start()
         self.last_heartbeat_sent = time.time()
 
     def send_heart_beat(self,to_server_id,request):
@@ -128,7 +135,8 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
             try:
                 response = stub.DetectHeartBeats(request)
             except grpc.RpcError as e:
-                print(f"Server {self.server_id} RPC error to {to_server_id}: {e}")
+                self.unreachID.add(to_server_id)
+                print(f"Server {self.server_id} RPC error to {to_server_id}: The node is dead")
     def send_append_entries(self, to_server_id, request):
         global commitState
         address = self.all_addresses[to_server_id]
@@ -155,10 +163,10 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
                             break
                             
                 else:
-                    print("not good")
                     self.next_index[to_server_id] = max(1, self.next_index[to_server_id] - 1)
             except grpc.RpcError as e:
-                print(f"Server {self.server_id} RPC error to {to_server_id}: {e}")
+                self.unreachID.add(to_server_id)
+                print(f"Server {self.server_id} RPC error to {to_server_id}: The node is dead")
 
     def RequestVote(self, request, context):
         #Handle incoming RequestVote RPC
@@ -179,6 +187,9 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
     def DetectHeartBeats(self,request,context):
         self.last_heartbeat_time = time.time()
         self.leader_id = request.leader_id
+        temp = list(map(int, request.active_followers))
+        self.unreachID = set(temp)
+        
         if self.role == ROLE_CANDIDATE:
             self.role = ROLE_FOLLOWER
         return raft_pb2.HeartBeatResponse()
@@ -223,6 +234,7 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
         print("Received from client: "+request.message)
         for server in range(len(self.all_addresses)):
             if server != self.server_id:
+             if server not in self.unreachID:
               next_idx = self.next_index[server]           
               prev_log_index = next_idx - 1
               prev_log_term = self.log[prev_log_index][0] if prev_log_index >= 0 else 0

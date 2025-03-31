@@ -60,6 +60,11 @@ class RaftServiceStub(object):
                 request_serializer=raft__pb2.HeartBeat.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 _registered_method=True)
+        self.SendPortNum = channel.unary_unary(
+                '/raft.RaftService/SendPortNum',
+                request_serializer=raft__pb2.Port.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                _registered_method=True)
 
 
 class RaftServiceServicer(object):
@@ -95,6 +100,12 @@ class RaftServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SendPortNum(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_RaftServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -121,6 +132,11 @@ def add_RaftServiceServicer_to_server(servicer, server):
             'DetectHeartBeats': grpc.unary_unary_rpc_method_handler(
                     servicer.DetectHeartBeats,
                     request_deserializer=raft__pb2.HeartBeat.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'SendPortNum': grpc.unary_unary_rpc_method_handler(
+                    servicer.SendPortNum,
+                    request_deserializer=raft__pb2.Port.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
     }
@@ -258,6 +274,33 @@ class RaftService(object):
             target,
             '/raft.RaftService/DetectHeartBeats',
             raft__pb2.HeartBeat.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SendPortNum(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/raft.RaftService/SendPortNum',
+            raft__pb2.Port.SerializeToString,
             google_dot_protobuf_dot_empty__pb2.Empty.FromString,
             options,
             channel_credentials,

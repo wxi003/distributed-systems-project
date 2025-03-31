@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\nraft.proto\x12\x04raft\x1a\x1bgoogle/protobuf/empty.proto\")\n\x08LogEntry\x12\x0c\n\x04term\x18\x01 \x01(\x05\x12\x0f\n\x07\x63ommand\x18\x02 \x01(\t\"g\n\x12RequestVoteRequest\x12\x0c\n\x04term\x18\x01 \x01(\x05\x12\x14\n\x0c\x63\x61ndidate_id\x18\x02 \x01(\x05\x12\x16\n\x0elast_log_index\x18\x03 \x01(\x05\x12\x15\n\rlast_log_term\x18\x04 \x01(\x05\"9\n\x13RequestVoteResponse\x12\x0c\n\x04term\x18\x01 \x01(\x05\x12\x14\n\x0cvote_granted\x18\x02 \x01(\x08\"\x9e\x01\n\x14\x41ppendEntriesRequest\x12\x0c\n\x04term\x18\x01 \x01(\x05\x12\x11\n\tleader_id\x18\x02 \x01(\x05\x12\x16\n\x0eprev_log_index\x18\x03 \x01(\x05\x12\x15\n\rprev_log_term\x18\x04 \x01(\x05\x12\x1f\n\x07\x65ntries\x18\x05 \x03(\x0b\x32\x0e.raft.LogEntry\x12\x15\n\rleader_commit\x18\x06 \x01(\x05\"6\n\x15\x41ppendEntriesResponse\x12\x0c\n\x04term\x18\x01 \x01(\x05\x12\x0f\n\x07success\x18\x02 \x01(\x08\"&\n\x12\x43heckLeaderRequest\x12\x10\n\x08\x63lientID\x18\x01 \x01(\t\";\n\x13\x43heckLeaderResponse\x12\x10\n\x08isLeader\x18\x01 \x01(\x08\x12\x12\n\nleaderPort\x18\x02 \x01(\t\"%\n\x12SendMessageRequest\x12\x0f\n\x07message\x18\x01 \x01(\t\"=\n\x13SendMessageResponse\x12\x14\n\x0cisSuccessful\x18\x01 \x01(\x08\x12\x10\n\x08isLeader\x18\x02 \x01(\x08\"\x1e\n\tHeartBeat\x12\x11\n\tleader_id\x18\x01 \x01(\x05\"$\n\x11HeartBeatResponse\x12\x0f\n\x07message\x18\x01 \x01(\t2\xe0\x02\n\x0bRaftService\x12\x42\n\x0bRequestVote\x12\x18.raft.RequestVoteRequest\x1a\x19.raft.RequestVoteResponse\x12H\n\rAppendEntries\x12\x1a.raft.AppendEntriesRequest\x1a\x1b.raft.AppendEntriesResponse\x12\x42\n\x0b\x43heckLeader\x12\x18.raft.CheckLeaderRequest\x1a\x19.raft.CheckLeaderResponse\x12\x42\n\x0bSendMessage\x12\x18.raft.SendMessageRequest\x1a\x19.raft.SendMessageResponse\x12;\n\x10\x44\x65tectHeartBeats\x12\x0f.raft.HeartBeat\x1a\x16.google.protobuf.Emptyb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\nraft.proto\x12\x04raft\x1a\x1bgoogle/protobuf/empty.proto\")\n\x08LogEntry\x12\x0c\n\x04term\x18\x01 \x01(\x05\x12\x0f\n\x07\x63ommand\x18\x02 \x01(\t\"g\n\x12RequestVoteRequest\x12\x0c\n\x04term\x18\x01 \x01(\x05\x12\x14\n\x0c\x63\x61ndidate_id\x18\x02 \x01(\x05\x12\x16\n\x0elast_log_index\x18\x03 \x01(\x05\x12\x15\n\rlast_log_term\x18\x04 \x01(\x05\"9\n\x13RequestVoteResponse\x12\x0c\n\x04term\x18\x01 \x01(\x05\x12\x14\n\x0cvote_granted\x18\x02 \x01(\x08\"\x9e\x01\n\x14\x41ppendEntriesRequest\x12\x0c\n\x04term\x18\x01 \x01(\x05\x12\x11\n\tleader_id\x18\x02 \x01(\x05\x12\x16\n\x0eprev_log_index\x18\x03 \x01(\x05\x12\x15\n\rprev_log_term\x18\x04 \x01(\x05\x12\x1f\n\x07\x65ntries\x18\x05 \x03(\x0b\x32\x0e.raft.LogEntry\x12\x15\n\rleader_commit\x18\x06 \x01(\x05\"6\n\x15\x41ppendEntriesResponse\x12\x0c\n\x04term\x18\x01 \x01(\x05\x12\x0f\n\x07success\x18\x02 \x01(\x08\"&\n\x12\x43heckLeaderRequest\x12\x10\n\x08\x63lientID\x18\x01 \x01(\t\";\n\x13\x43heckLeaderResponse\x12\x10\n\x08isLeader\x18\x01 \x01(\x08\x12\x12\n\nleaderPort\x18\x02 \x01(\t\"%\n\x12SendMessageRequest\x12\x0f\n\x07message\x18\x01 \x01(\t\"=\n\x13SendMessageResponse\x12\x14\n\x0cisSuccessful\x18\x01 \x01(\x08\x12\x10\n\x08isLeader\x18\x02 \x01(\x08\"8\n\tHeartBeat\x12\x11\n\tleader_id\x18\x01 \x01(\x05\x12\x18\n\x10\x61\x63tive_followers\x18\x02 \x03(\t\"$\n\x11HeartBeatResponse\x12\x0f\n\x07message\x18\x01 \x01(\t\"\x14\n\x04Port\x12\x0c\n\x04port\x18\x01 \x01(\x05\x32\x93\x03\n\x0bRaftService\x12\x42\n\x0bRequestVote\x12\x18.raft.RequestVoteRequest\x1a\x19.raft.RequestVoteResponse\x12H\n\rAppendEntries\x12\x1a.raft.AppendEntriesRequest\x1a\x1b.raft.AppendEntriesResponse\x12\x42\n\x0b\x43heckLeader\x12\x18.raft.CheckLeaderRequest\x1a\x19.raft.CheckLeaderResponse\x12\x42\n\x0bSendMessage\x12\x18.raft.SendMessageRequest\x1a\x19.raft.SendMessageResponse\x12;\n\x10\x44\x65tectHeartBeats\x12\x0f.raft.HeartBeat\x1a\x16.google.protobuf.Empty\x12\x31\n\x0bSendPortNum\x12\n.raft.Port\x1a\x16.google.protobuf.Emptyb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -51,9 +51,11 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_SENDMESSAGERESPONSE']._serialized_start=613
   _globals['_SENDMESSAGERESPONSE']._serialized_end=674
   _globals['_HEARTBEAT']._serialized_start=676
-  _globals['_HEARTBEAT']._serialized_end=706
-  _globals['_HEARTBEATRESPONSE']._serialized_start=708
-  _globals['_HEARTBEATRESPONSE']._serialized_end=744
-  _globals['_RAFTSERVICE']._serialized_start=747
-  _globals['_RAFTSERVICE']._serialized_end=1099
+  _globals['_HEARTBEAT']._serialized_end=732
+  _globals['_HEARTBEATRESPONSE']._serialized_start=734
+  _globals['_HEARTBEATRESPONSE']._serialized_end=770
+  _globals['_PORT']._serialized_start=772
+  _globals['_PORT']._serialized_end=792
+  _globals['_RAFTSERVICE']._serialized_start=795
+  _globals['_RAFTSERVICE']._serialized_end=1198
 # @@protoc_insertion_point(module_scope)

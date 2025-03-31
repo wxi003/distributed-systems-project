@@ -51,9 +51,13 @@ message SendMessageResponse {
 }
 message HeartBeat{
   int32 leader_id = 1;
+  repeated string active_followers = 2;
 }
 message HeartBeatResponse{
    string message = 1;
+}
+message Port{
+  int32 port = 1;
 }
 service RaftService {
     rpc RequestVote(RequestVoteRequest) returns (RequestVoteResponse);
@@ -61,5 +65,5 @@ service RaftService {
     rpc CheckLeader(CheckLeaderRequest) returns (CheckLeaderResponse);
     rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
     rpc DetectHeartBeats(HeartBeat) returns (google.protobuf.Empty);
-
+    rpc SendPortNum(Port) returns (google.protobuf.Empty);
 }
