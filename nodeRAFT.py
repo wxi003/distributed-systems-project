@@ -10,10 +10,9 @@ import argparse
 import sys
 
 #Define roles as constants
-ROLE_FOLLOWER = "Follower"
+ROLE_FOLLOWER = "Follower"  
 ROLE_CANDIDATE = "Candidate"
 ROLE_LEADER = "Leader"
-commitState = False
 class Server(raft_pb2_grpc.RaftServiceServicer):
     def __init__(self, leader_port, follower_port):
         #Initialize a server with RAFT state
@@ -40,7 +39,6 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
             self.role = ROLE_FOLLOWER
             self.port = follower_port
             self.leader = leader_port
-            self.need_replay = True
         else:
             self.role = ROLE_LEADER
             self.port = leader_port
@@ -48,18 +46,17 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
             self.server_id = 0
             self.all_addresses = []
             self.log_file = "LOGNODE0.txt"
-            with open(self.log_file, "w") as f:
-                pass # Leave it empty for now
             self.next_node_id = 0
-            self.need_replay = False
             self.leader_id = 0
+        with open(self.log_file, "w") as f:
+            pass # Leave it empty for now
         self.next_index = 0
         self.term = 0
         self.voted_for = None
         self.log = []
         self.commit_index = 0
         self.last_heartbeat_time = time.time()
-        self.election_timeout = random.uniform(10, 17)
+        self.election_timeout = random.uniform(100, 170)
         self.votes_received = 0
         self.next_index = 0
         self.match_index = None
@@ -145,36 +142,27 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
             except grpc.RpcError as e:
                 print(f"Leader Server {self.server_id} HeartBeat error to localhost::{server_port}: {e}")
 
-    def send_append_entries(self, to_server_id, request):
-        global commitState
-        address = self.all_addresses[to_server_id]
-        with grpc.insecure_channel(address) as channel:
+    # Send logs to all follower, on success return 1, 0 otherwise
+    def send_append_entries(self, address, request):
+        with grpc.insecure_channel("localhost:" + str(address)) as channel:
             stub = raft_pb2_grpc.RaftServiceStub(channel)
             try:
                 response = stub.AppendEntries(request)
-                
+                # for election TODO?
                 if response.term > self.term:
                     self.term = response.term
                     self.role = ROLE_FOLLOWER
                     self.voted_for = None
-                    return
-              
+                    return 0
+                
                 if response.success:
-                    self.match_index[to_server_id] = request.prev_log_index + len(request.entries)
-                    self.next_index[to_server_id] = self.match_index[to_server_id] + 1
-                    # Update commit_index based on majority replication
-                    for n in range(self.commit_index, len(self.log)):
-                        if sum(1 for s in self.match_index if self.match_index[s] >= n) > len(self.all_addresses) // 2:
-                            self.commit_index = n
-                            self.send_client_responses()                            
-                            commitState=True
-                            break
-                            
+                    return 1
                 else:
-                    print("not good")
-                    self.next_index[to_server_id] = max(1, self.next_index[to_server_id] - 1)
+                    print("Follower reject Leader")
+                    return 0
             except grpc.RpcError as e:
-                print(f"Server {self.server_id} RPC error to {to_server_id}: {e}")
+                print(f"Server {self.server_id} RPC error to port {address}: {e}")
+                return 0
 
     def RequestVote(self, request, context):
         #Handle incoming RequestVote RPC
@@ -201,12 +189,12 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
                 return raft_pb2.ConnectLeaderResponse(status = raft_pb2.Status.FAILURE_DUPLICATE_PORT)
         self.next_node_id += 1
         new_log_file = "LOGNODE" + str(self.next_node_id) + ".txt"
+        shutil.copy(self.log_file, new_log_file)
         response = raft_pb2.ConnectLeaderResponse(status = raft_pb2.Status.SUCCESS, 
                                                     node_id = self.next_node_id,
                                                     leader_id = self.server_id,
                                                     other_ports = self.all_addresses,
                                                     log_file = new_log_file)
-        shutil.copy(self.log_file, new_log_file)
         for server_port in self.all_addresses:
             request = raft_pb2.NewNodeBoardcastRequest(
                 node_port = request.secondary_port
@@ -217,7 +205,7 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
                     stub.NewNodeBoardcast(request)
                 except grpc.RpcError as e:
                     print(f"Leader Server {self.server_id} HeartBeat error to localhost::{server_port}: {e}")
-        self.last_heartbeat_sent = time.time()
+        self.all_addresses.append(request.secondary_port)
         return response
 
     def NewNodeBoardcast(self,request,context):
@@ -230,75 +218,67 @@ class Server(raft_pb2_grpc.RaftServiceServicer):
         if self.role == ROLE_CANDIDATE:
             self.role = ROLE_FOLLOWER
         return raft_pb2.HeartBeatResponse()
+    
     def AppendEntries(self, request, context):
         #Handle incoming AppendEntries RPC
-         if request.term < self.term:
+        print(f"As Follower, I got {request.prev_log_index}")
+        if request.term < self.term:
             return raft_pb2.AppendEntriesResponse(term=self.term, success=False)
-          
-        #  self.last_heartbeat_time = time.time()
-        #  self.leader_id = request.leader_id
-        #  if self.role == ROLE_CANDIDATE:
-        #     self.role = ROLE_FOLLOWER
-         prev_log_index = request.prev_log_index
-         if prev_log_index >= len(self.log):
+        prev_log_index = request.prev_log_index
+        if prev_log_index > len(self.log):
+           return raft_pb2.AppendEntriesResponse(term=self.term, success=False)
+        if prev_log_index >= 0 and self.log[prev_log_index] != request.prev_log_term:
             return raft_pb2.AppendEntriesResponse(term=self.term, success=False)
-         if prev_log_index >= 0 and self.log[prev_log_index][0] != request.prev_log_term:
-            return raft_pb2.AppendEntriesResponse(term=self.term, success=False)
-        #Apply log entries
-         for i, entry in enumerate(request.entries):
-            log_index = prev_log_index + 1 + i
-            if log_index < len(self.log):
-                if self.log[log_index][0] != entry.term:
-                    self.log = self.log[:log_index]
-                    self.log.append((entry.term, entry.command))
-            else:
-                self.log.append((entry.term, entry.command))
-         if request.leader_commit > self.commit_index:
-            self.commit_index = min(request.leader_commit, len(self.log) - 1)
-         return raft_pb2.AppendEntriesResponse(term=self.term, success=True)
+        log_index = prev_log_index + 1
+        entry = request.entry
+        with open(self.log_file, "a") as file:
+            file.write(request.entry.command + "\n")
+        print("Received from leader: "+ request.entry.command)
+        # As a follower, current log is ahead of leader, overwrite it
+        if log_index < len(self.log):
+            if self.log[log_index] != entry.term:
+                self.log = self.log[:log_index]
+                self.log.append(entry.term)
+        else:
+                self.log.append(entry.term)
+        self.commit_index += 1
+        return raft_pb2.AppendEntriesResponse(term=self.term, success=True)
 
     def send_client_responses(self):
 
         None
     def CheckLeader(self, request, context):
-        if self.server_id == self.leader_id:
-            return raft_pb2.CheckLeaderResponse(isLeader = True,leaderPort = self.all_addresses[self.leader_id].split(':')[-1])
+        print(self.role)
+        if self.role == ROLE_LEADER:
+            return raft_pb2.CheckLeaderResponse(isLeader = True,leaderPort = self.port)
         else:
-            return raft_pb2.CheckLeaderResponse(isLeader = False,leaderPort = self.all_addresses[self.leader_id].split(':')[-1])
-    def SendMessage(self, request, context):
-        global commitState
-        self.log.append((self.term,request.message))
-        print("Received from client: "+request.message)
-        for server in range(len(self.all_addresses)):
-            if server != self.server_id:
-              next_idx = self.next_index[server]           
-              prev_log_index = next_idx - 1
-              prev_log_term = self.log[prev_log_index][0] if prev_log_index >= 0 else 0
-              entries = [raft_pb2.LogEntry(term=t, command=c) for t, c in self.log[next_idx:]]
-              request = raft_pb2.AppendEntriesRequest(
-                    term=self.term,
-                    leader_id=self.server_id,
-                    prev_log_index=prev_log_index,
-                    prev_log_term=prev_log_term,
-                    entries=entries,
-                    leader_commit=self.commit_index
-                )
-              
-              threading.Thread(target=self.send_append_entries, args=(server,request)).start()
+            return raft_pb2.CheckLeaderResponse(isLeader = False)
         
-        time.sleep(0.5)
-        if commitState == True:
-            if self.server_id == self.leader_id:
-             commitState = False
-             return raft_pb2.SendMessageResponse(isSuccessful= True,isLeader = True)
-            else:
-             commitState = False
-             return raft_pb2.SendMessageResponse(isSuccessful= True,isLeader = False)
+    def SendMessage(self, request, context):
+        if self.role != ROLE_LEADER:
+            return raft_pb2.SendMessageResponse(isSuccessful= False,isLeader = False)
+        commitState = 0
+        with open(self.log_file, "a") as file:
+            file.write(request.message + "\n")
+        print("Received from client: "+ request.message)
+        print(self.all_addresses)
+        for server in self.all_addresses:      
+            prev_log_index = len(self.log) - 1
+            prev_log_term = self.log[prev_log_index] if prev_log_index >= 0 else 0
+            current_entry = raft_pb2.LogEntry(term = self.term, command = request.message)
+            request = raft_pb2.AppendEntriesRequest(
+                term=self.term,
+                prev_log_index=prev_log_index,
+                prev_log_term=prev_log_term,
+                entry= current_entry
+            )
+            commitState += self.send_append_entries(server,request)
+        if commitState >= len(self.all_addresses) // 2:
+            self.log.append((self.term))
+            return raft_pb2.SendMessageResponse(isSuccessful= True,isLeader = True)
         else:
-            if self.server_id == self.leader_id:
-             return raft_pb2.SendMessageResponse(isSuccessful= False,isLeader = True)
-            else:
-             return raft_pb2.SendMessageResponse(isSuccessful= False,isLeader = False)
+            return raft_pb2.SendMessageResponse(isSuccessful= False,isLeader = True)
+        
 if __name__ == "__main__":
     serverPorts = []
     parser = argparse.ArgumentParser()
@@ -307,5 +287,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
     server = Server(args.l, args.f)
     server.run()
-
-    

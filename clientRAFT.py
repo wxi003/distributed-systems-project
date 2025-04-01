@@ -16,15 +16,11 @@ class RaftClient:
                 with grpc.insecure_channel("localhost:" + port) as channel:
                     stub =raft_pb2_grpc.RaftServiceStub(channel)
                     request = raft_pb2.CheckLeaderRequest(clientID="client1")
-                    response = stub.CheckLeader(request, timeout=2)  # Set a timeout
+                    response = stub.CheckLeader(request, timeout=20)  # Set a timeout
                     if response.isLeader:
                         print(f"Found leader at {port}")
                         self.currentLeader = port
                         return port
-                    elif response.leaderPort:
-                        print(f"Redirected to leader at {response.leaderPort}")
-                        self.currentLeader = response.leaderPort
-                        return response.leaderPort
             except grpc.RpcError as e:
                 print(f"Failed to connect to {port}: {e}")
                 continue
@@ -40,7 +36,7 @@ class RaftClient:
             raise Exception("No leader available")
 
         try:
-            with grpc.insecure_channel("localhost:" + self.currentLeader) as channel:
+            with grpc.insecure_channel("localhost:" + str(self.currentLeader)) as channel:
                 stub = raft_pb2_grpc.RaftServiceStub(channel)
                 # Replace with your actual request type
                 request = raft_pb2.SendMessageRequest(message=requestData)
