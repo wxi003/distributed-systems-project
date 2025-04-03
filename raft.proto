@@ -36,6 +36,7 @@ message AppendEntriesRequest {
 message AppendEntriesResponse {
   int32 term = 1;
   bool success = 2;
+  bool need_log = 3;
 }
 message CheckLeaderRequest {
   string clientID = 1;     // Optional
